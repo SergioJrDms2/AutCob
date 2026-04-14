@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Upload, Search, RefreshCw, ArrowUpRight, ArrowDownRight, Phone, Mail, MessageSquare, Eye, CheckCheck, Send, AlertTriangle, Users, FileText, LayoutDashboard, Database, ChevronLeft, ChevronRight, FileUp, Clock, Shield, TrendingUp, Loader2, UserPlus, CheckCircle, Download } from "lucide-react";
 import * as Papa from "papaparse";
 import * as XLSX from "xlsx";
