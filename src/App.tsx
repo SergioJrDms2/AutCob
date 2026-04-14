@@ -4,6 +4,15 @@ import { Upload, Search, RefreshCw, ArrowUpRight, ArrowDownRight, Phone, Mail, M
 import * as Papa from "papaparse";
 import * as XLSX from "xlsx";
 
+import type { ReactNode, ComponentType, CSSProperties } from "react";
+import type { ParseResult } from "papaparse";
+
+declare global {
+  interface Window {
+    ExcelJS?: typeof import("exceljs");
+  }
+}
+
 type StatusFila =
   | "pendente"
   | "enviado"
@@ -13,13 +22,15 @@ type StatusFila =
   | "pago"
   | "negativado"
   | "recebido"
-  | "resposta_cliente";
+  | "resposta_cliente"
+  | string;
 
 type FaseCobranca =
   | "inicial"
   | "lembrete"
   | "urgente"
-  | "pre_negativacao";
+  | "pre_negativacao"
+  | string;
 
 type TipoLog =
   | "disparo"
@@ -27,16 +38,18 @@ type TipoLog =
   | "urgente"
   | "pre_negativacao"
   | "resposta_cliente"
-  | "recebido";
+  | "recebido"
+  | string;
 
 type StatusEntrega =
   | "pendente"
   | "enviado"
   | "entregue"
   | "lido"
-  | "falhou";
+  | "falhou"
+  | string;
 
-type Canal = "whatsapp" | "email" | "sms";
+type Canal = "whatsapp" | "email" | "sms" | string;
 
 type DevedorFila = {
   cpf?: string;
@@ -44,22 +57,23 @@ type DevedorFila = {
   telefone?: string;
   email?: string;
   prefeitura?: string;
-  valor_divida?: number | string;
+  valor_divida?: string | number;
+  valor_original?: string | number;
   contrato?: string;
   classificacao?: string;
-  status?: StatusFila | string;
+  status?: StatusFila;
   tentativas?: number;
-  fase_cobranca?: FaseCobranca | string;
+  fase_cobranca?: FaseCobranca;
   leu_mensagem?: boolean;
   ultimo_status_entrega?: string;
   created_at?: string;
 };
 
 type LogContato = {
-  canal?: Canal | string;
+  canal?: Canal;
   telefone?: string;
-  tipo?: TipoLog | string;
-  status_entrega?: StatusEntrega | string;
+  tipo?: TipoLog;
+  status_entrega?: StatusEntrega;
   timestamp_envio?: string;
   conteudo?: string;
 };
@@ -77,6 +91,89 @@ type AppData = {
   repasse: DataRepasse[];
 };
 
+type ImportRow = {
+  cpf?: string;
+  CPF?: string;
+  nome?: string;
+  Nome?: string;
+  NOME?: string;
+  telefone?: string;
+  Telefone?: string;
+  TELEFONE?: string;
+  celular?: string;
+  Celular?: string;
+  email?: string;
+  Email?: string;
+  EMAIL?: string;
+  valor_divida?: string | number;
+  valor?: string | number;
+  Valor?: string | number;
+  VALOR?: string | number;
+  prefeitura?: string;
+  Prefeitura?: string;
+  contrato?: string;
+  Contrato?: string;
+  CONTRATO?: string;
+  classificacao?: string;
+  Classificacao?: string;
+  [key: string]: string | number | undefined;
+};
+
+type UploadResult = { ok: true; count: number } | { ok: false; error: string } | null;
+type ManualResult = { ok: true; nome: string } | { ok: false; error: string } | null;
+
+type MetricCardProps = {
+  label: string;
+  value: string | number;
+  sub?: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
+  color: "blue" | "green" | "amber" | "red" | "purple" | "cyan";
+  trend?: number;
+};
+
+type BadgeProps = {
+  status?: string;
+};
+
+type ChannelIconProps = {
+  canal?: string;
+};
+
+type ChartTooltipEntry = {
+  name: string;
+  value: string | number;
+};
+
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: ChartTooltipEntry[];
+  label?: string;
+};
+
+type FieldProps = {
+  label: string;
+  required?: boolean;
+  children: ReactNode;
+};
+
+type KanbanColumnProps = {
+  title: string;
+  items: DevedorFila[];
+  color: string;
+  icon: ComponentType<{ size?: number; style?: CSSProperties; className?: string }>;
+  borderColor: string;
+};
+
+type StepStatus = "ativo" | "pendente" | "futuro";
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
+
+const toMoneyNumber = (value: string | number | undefined): number =>
+  parseFloat(String(value ?? 0).replace(",", ".")) || 0;
+
 const SUPABASE_URL = "https://ytvchpmlkvbgjimozfdd.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dmNocG1sa3ZiZ2ppbW96ZmRkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc1NDgzMSwiZXhwIjoyMDkxMzMwODMxfQ.k7h95OCf2Vw6YZaVVmFWjjjHkPCHhvIgAMIhlEGcCUg";
 
@@ -87,12 +184,12 @@ const headers = {
   Prefer: "return=representation",
 };
 
-const supaFetch = async (table, query = "") => {
+const supaFetch = async <T,>(table: string, query = ""): Promise<T> => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers });
   return res.json();
 };
 
-const supaPost = async (table, body) => {
+const supaPost = async <T,>(table: string, body: T[]): Promise<unknown> => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
     headers: { ...headers, Prefer: "return=representation, resolution=ignore-duplicates" },
@@ -101,13 +198,15 @@ const supaPost = async (table, body) => {
   return res.json();
 };
 
-// ─── LOAD EXCELJS FROM CDN ───────────────────────────
-async function loadExcelJS() {
+async function loadExcelJS(): Promise<typeof import("exceljs")> {
   return new Promise((resolve, reject) => {
-    if (window.ExcelJS) { resolve(window.ExcelJS); return; }
+    if (window.ExcelJS) {
+      resolve(window.ExcelJS);
+      return;
+    }
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
-    script.onload = () => resolve(window.ExcelJS);
+    script.onload = () => resolve(window.ExcelJS as typeof import("exceljs"));
     script.onerror = () => reject(new Error("Falha ao carregar ExcelJS"));
     document.head.appendChild(script);
   });
