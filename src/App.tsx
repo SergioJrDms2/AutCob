@@ -4,6 +4,79 @@ import { Upload, Search, RefreshCw, ArrowUpRight, ArrowDownRight, Phone, Mail, M
 import * as Papa from "papaparse";
 import * as XLSX from "xlsx";
 
+type StatusFila =
+  | "pendente"
+  | "enviado"
+  | "entregue"
+  | "lido"
+  | "respondido"
+  | "pago"
+  | "negativado"
+  | "recebido"
+  | "resposta_cliente";
+
+type FaseCobranca =
+  | "inicial"
+  | "lembrete"
+  | "urgente"
+  | "pre_negativacao";
+
+type TipoLog =
+  | "disparo"
+  | "lembrete"
+  | "urgente"
+  | "pre_negativacao"
+  | "resposta_cliente"
+  | "recebido";
+
+type StatusEntrega =
+  | "pendente"
+  | "enviado"
+  | "entregue"
+  | "lido"
+  | "falhou";
+
+type Canal = "whatsapp" | "email" | "sms";
+
+type DevedorFila = {
+  cpf?: string;
+  nome?: string;
+  telefone?: string;
+  email?: string;
+  prefeitura?: string;
+  valor_divida?: number | string;
+  contrato?: string;
+  classificacao?: string;
+  status?: StatusFila | string;
+  tentativas?: number;
+  fase_cobranca?: FaseCobranca | string;
+  leu_mensagem?: boolean;
+  ultimo_status_entrega?: string;
+  created_at?: string;
+};
+
+type LogContato = {
+  canal?: Canal | string;
+  telefone?: string;
+  tipo?: TipoLog | string;
+  status_entrega?: StatusEntrega | string;
+  timestamp_envio?: string;
+  conteudo?: string;
+};
+
+type DataRepasse = {
+  prefeitura?: string;
+  data_repasse?: string;
+  janela_dias?: number;
+  mes_referencia?: string;
+};
+
+type AppData = {
+  fila: DevedorFila[];
+  logs: LogContato[];
+  repasse: DataRepasse[];
+};
+
 const SUPABASE_URL = "https://ytvchpmlkvbgjimozfdd.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dmNocG1sa3ZiZ2ppbW96ZmRkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc1NDgzMSwiZXhwIjoyMDkxMzMwODMxfQ.k7h95OCf2Vw6YZaVVmFWjjjHkPCHhvIgAMIhlEGcCUg";
 
@@ -444,7 +517,19 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-function KanbanColumn({ title, items, color, icon: Icon, borderColor }) {
+function KanbanColumn({
+  title,
+  items,
+  color,
+  icon: Icon,
+  borderColor,
+}: {
+  title: string;
+  items: DevedorFila[];
+  color: string;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties; className?: string }>;
+  borderColor: string;
+}) {
   return (
     <div className="flex-1 min-w-[180px]">
       <div className={`rounded-2xl border ${borderColor} bg-white overflow-hidden`}>
@@ -457,7 +542,7 @@ function KanbanColumn({ title, items, color, icon: Icon, borderColor }) {
         </div>
         <div className="p-2 space-y-1.5 max-h-[300px] overflow-y-auto">
           {items.length === 0 && <div className="text-center py-8 text-xs text-[#818C84]">Nenhum devedor</div>}
-          {items.slice(0, 10).map((f, i) => (
+          {items.slice(0, 10).map((f: DevedorFila, i: number) => (
             <div
               key={i}
               className="bg-[#F7F7F6] border border-zinc-200 rounded-2xl px-3 py-2.5 hover:bg-white hover:shadow-sm transition-all"
@@ -817,7 +902,7 @@ function UploadPage({ onRefresh }) {
   );
 }
 
-function DashboardPage({ data }) {
+function DashboardPage({ data }: { data: AppData }) {
   const { fila, logs } = data;
   const total = fila.length;
   const pendentes = fila.filter(f => f.status === "pendente").length;
@@ -964,7 +1049,7 @@ function DashboardPage({ data }) {
   );
 }
 
-function DevedoresPage({ data }) {
+function DevedoresPage({ data, onRefresh }: { data: AppData; onRefresh: () => Promise<void> }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [exporting, setExporting] = useState(false);
@@ -1067,7 +1152,7 @@ function DevedoresPage({ data }) {
   );
 }
 
-function SistemaPage({ data }) {
+function SistemaPage({ data }: { data: AppData }) {
   const { repasse } = data;
   const repasseAtual = repasse?.[0];
   const steps = [
@@ -1151,23 +1236,26 @@ function SistemaPage({ data }) {
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ fila: [], logs: [], repasse: [] });
+  const [data, setData] = useState<AppData>({ fila: [], logs: [], repasse: [] });
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const [fila, logs, repasse] = await Promise.all([
         supaFetch("fila_cobranca", "order=created_at.desc&limit=500"),
         supaFetch("log_contatos", "order=timestamp_envio.desc&limit=200"),
-        supaFetch("datas_repasse", `prefeitura=eq.Ponta Grossa&mes_referencia=eq.${new Date().toISOString().slice(0, 7)}`),
+        supaFetch("datas_repasse", `prefeitura=eq.Ponta%20Grossa&mes_referencia=eq.${new Date().toISOString().slice(0, 7)}`),
       ]);
+
       setData({
-        fila: Array.isArray(fila) ? fila : [],
-        logs: Array.isArray(logs) ? logs : [],
-        repasse: Array.isArray(repasse) ? repasse : [],
+        fila: Array.isArray(fila) ? (fila as DevedorFila[]) : [],
+        logs: Array.isArray(logs) ? (logs as LogContato[]) : [],
+        repasse: Array.isArray(repasse) ? (repasse as DataRepasse[]) : [],
       });
-    } catch (e) { console.error("Fetch error:", e); }
+    } catch (e) {
+      console.error("Fetch error:", e);
+    }
     setLoading(false);
   }, []);
 
