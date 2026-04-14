@@ -32,34 +32,34 @@ const supaPost = async (table, body) => {
 function MetricCard({ label, value, sub, icon: Icon, color, trend }) {
   const colors = {
     blue: "from-blue-500/10 to-blue-600/5 border-blue-500/20",
-    green: "from-emerald-500/10 to-emerald-600/5 border-emerald-500/20",
+    green: "from-emerald-500/10 to-emerald-600/5 border-[#8AA696]/30",
     amber: "from-amber-500/10 to-amber-600/5 border-amber-500/20",
     red: "from-rose-500/10 to-rose-600/5 border-rose-500/20",
     purple: "from-violet-500/10 to-violet-600/5 border-violet-500/20",
     cyan: "from-cyan-500/10 to-cyan-600/5 border-cyan-500/20",
   };
   const iconColors = {
-    blue: "text-blue-400", green: "text-emerald-400", amber: "text-amber-400",
+    blue: "text-blue-400", green: "text-[#8AA696]", amber: "text-amber-400",
     red: "text-rose-400", purple: "text-violet-400", cyan: "text-cyan-400",
   };
   return (
     <div className={`bg-gradient-to-br ${colors[color]} border rounded-2xl p-5 flex flex-col gap-3`}>
       <div className="flex items-center justify-between">
-        <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${iconColors[color]}`}>
+        <div className={`w-10 h-10 rounded-xl bg-[#8AA696]/10 flex items-center justify-center ${iconColors[color]}`}>
           <Icon size={20} />
         </div>
         {trend !== undefined && (
-          <div className={`flex items-center gap-1 text-xs font-medium ${trend >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <div className={`flex items-center gap-1 text-xs font-medium ${trend >= 0 ? "text-[#8AA696]" : "text-rose-400"}`}>
             {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
             {Math.abs(trend)}%
           </div>
         )}
       </div>
       <div>
-        <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
-        <div className="text-xs text-zinc-400 mt-1">{label}</div>
+        <div className="text-3xl font-bold text-[#403A2F] tracking-tight">{value}</div>
+        <div className="text-xs text-[#818C84] mt-1">{label}</div>
       </div>
-      {sub && <div className="text-[11px] text-zinc-500">{sub}</div>}
+      {sub && <div className="text-[11px] text-[#818C84]">{sub}</div>}
     </div>
   );
 }
@@ -70,17 +70,17 @@ function Badge({ status }) {
     pendente: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     enviado: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     entregue: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-    lido: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    lido: "bg-[#8AA696]/10 text-[#8AA696] border-[#8AA696]/30",
     respondido: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-    pago: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+    pago: "bg-[#8AA696]/10 text-[#8AA696] border-[#8AA696]/30",
     negativado: "bg-rose-500/10 text-rose-400 border-rose-500/20",
-    inicial: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+    inicial: "bg-zinc-500/10 text-[#818C84] border-zinc-500/20",
     lembrete: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     urgente: "bg-orange-500/10 text-orange-400 border-orange-500/20",
     pre_negativacao: "bg-rose-500/10 text-rose-400 border-rose-500/20",
   };
   return (
-    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${map[status] || "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"}`}>
+    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${map[status] || "bg-zinc-500/10 text-[#818C84] border-zinc-500/20"}`}>
       {status?.replace("_", " ") || "—"}
     </span>
   );
@@ -88,20 +88,20 @@ function Badge({ status }) {
 
 // ─── Channel Icon ────────────────────────────────────
 function ChannelIcon({ canal }) {
-  if (canal === "whatsapp") return <MessageSquare size={14} className="text-emerald-400" />;
+  if (canal === "whatsapp") return <MessageSquare size={14} className="text-[#8AA696]" />;
   if (canal === "email") return <Mail size={14} className="text-blue-400" />;
   if (canal === "sms") return <Phone size={14} className="text-amber-400" />;
-  return <Send size={14} className="text-zinc-400" />;
+  return <Send size={14} className="text-[#818C84]" />;
 }
 
 // ─── Custom Tooltip ──────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 shadow-xl">
-      <div className="text-xs text-zinc-400 mb-1">{label}</div>
+    <div className="bg-[#F2F2F2] border border-zinc-300 rounded-lg px-3 py-2 shadow-xl">
+      <div className="text-xs text-[#818C84] mb-1">{label}</div>
       {payload.map((p, i) => (
-        <div key={i} className="text-sm font-semibold text-white">{p.name}: {p.value}</div>
+        <div key={i} className="text-sm font-semibold text-[#403A2F]">{p.name}: {p.value}</div>
       ))}
     </div>
   );
@@ -132,13 +132,13 @@ function DashboardPage({ data }) {
     { name: "Pendente", value: pendentes, color: "#f59e0b" },
     { name: "Enviado", value: enviados, color: "#3b82f6" },
     { name: "Respondido", value: respondidos, color: "#8b5cf6" },
-    { name: "Pago", value: pagos, color: "#10b981" },
+    { name: "Pago", value: pagos, color: "#8AA696" },
   ].filter(d => d.value > 0);
 
   const entregaData = [
     { name: "Enviado", value: totalDisparos - entregues - lidosLog - falhou, color: "#3b82f6" },
     { name: "Entregue", value: entregues, color: "#06b6d4" },
-    { name: "Lido", value: lidosLog, color: "#10b981" },
+    { name: "Lido", value: lidosLog, color: "#8AA696" },
     { name: "Falhou", value: falhou, color: "#ef4444" },
   ].filter(d => d.value > 0);
 
@@ -155,8 +155,8 @@ function DashboardPage({ data }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Visão Geral</h1>
-        <p className="text-zinc-400 text-sm mt-1">Métricas em tempo real da operação de cobrança</p>
+        <h1 className="text-2xl font-bold text-[#403A2F]">Visão Geral</h1>
+        <p className="text-[#818C84] text-sm mt-1">Métricas em tempo real da operação de cobrança</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -169,8 +169,8 @@ function DashboardPage({ data }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-4">Status da Fila</h3>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-[#525952] mb-4">Status da Fila</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
@@ -181,7 +181,7 @@ function DashboardPage({ data }) {
           </ResponsiveContainer>
           <div className="flex flex-wrap gap-3 mt-3 justify-center">
             {statusData.map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs text-zinc-400">
+              <div key={i} className="flex items-center gap-1.5 text-xs text-[#818C84]">
                 <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
                 {d.name}: {d.value}
               </div>
@@ -189,8 +189,8 @@ function DashboardPage({ data }) {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-4">Status de Entrega</h3>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-[#525952] mb-4">Status de Entrega</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={entregaData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
@@ -201,7 +201,7 @@ function DashboardPage({ data }) {
           </ResponsiveContainer>
           <div className="flex flex-wrap gap-3 mt-3 justify-center">
             {entregaData.map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs text-zinc-400">
+              <div key={i} className="flex items-center gap-1.5 text-xs text-[#818C84]">
                 <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
                 {d.name}: {d.value}
               </div>
@@ -209,25 +209,25 @@ function DashboardPage({ data }) {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-4">Fases de Cobrança</h3>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-[#525952] mb-4">Fases de Cobrança</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={faseData} barSize={32}>
               <XAxis dataKey="fase" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="qtd" name="Devedores" fill="#6366f1" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="qtd" name="Devedores" fill="#525952" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-        <h3 className="text-sm font-semibold text-zinc-300 mb-4">Últimos Contatos</h3>
+      <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-[#525952] mb-4">Últimos Contatos</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-zinc-800">
+              <tr className="text-[#818C84] text-xs uppercase tracking-wider border-b border-zinc-200">
                 <th className="text-left py-3 px-3">Canal</th>
                 <th className="text-left py-3 px-3">Telefone</th>
                 <th className="text-left py-3 px-3">Tipo</th>
@@ -238,13 +238,13 @@ function DashboardPage({ data }) {
             </thead>
             <tbody>
               {logs.slice(0, 8).map((l, i) => (
-                <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                <tr key={i} className="border-b border-zinc-200 hover:bg-[#F2F2F2]/50 transition-colors">
                   <td className="py-2.5 px-3"><ChannelIcon canal={l.canal} /></td>
-                  <td className="py-2.5 px-3 text-zinc-300 font-mono text-xs">{l.telefone || "—"}</td>
+                  <td className="py-2.5 px-3 text-[#525952] font-mono text-xs">{l.telefone || "—"}</td>
                   <td className="py-2.5 px-3"><Badge status={l.tipo} /></td>
                   <td className="py-2.5 px-3"><Badge status={l.status_entrega} /></td>
-                  <td className="py-2.5 px-3 text-zinc-500 text-xs">{l.timestamp_envio ? new Date(l.timestamp_envio).toLocaleString("pt-BR") : "—"}</td>
-                  <td className="py-2.5 px-3 text-zinc-400 text-xs max-w-[300px] truncate">{l.conteudo?.substring(0, 60) || "—"}</td>
+                  <td className="py-2.5 px-3 text-[#818C84] text-xs">{l.timestamp_envio ? new Date(l.timestamp_envio).toLocaleString("pt-BR") : "—"}</td>
+                  <td className="py-2.5 px-3 text-[#818C84] text-xs max-w-[300px] truncate">{l.conteudo?.substring(0, 60) || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -271,22 +271,22 @@ function DevedoresPage({ data, onRefresh }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Devedores</h1>
-          <p className="text-zinc-400 text-sm mt-1">{filtered.length} registros</p>
+          <h1 className="text-2xl font-bold text-[#403A2F]">Devedores</h1>
+          <p className="text-[#818C84] text-sm mt-1">{filtered.length} registros</p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[240px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#818C84]" />
           <input
             type="text" placeholder="Buscar por nome, CPF ou telefone..."
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+            className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#403A2F] placeholder:text-[#8AA696] focus:outline-none focus:border-zinc-600 transition-colors"
           />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600">
+          className="bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-sm text-[#403A2F] focus:outline-none focus:border-zinc-600">
           <option value="todos">Todos</option>
           <option value="pendente">Pendente</option>
           <option value="enviado">Enviado</option>
@@ -295,11 +295,11 @@ function DevedoresPage({ data, onRefresh }) {
         </select>
       </div>
 
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+      <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-zinc-500 text-xs uppercase tracking-wider bg-zinc-900/80">
+              <tr className="text-[#818C84] text-xs uppercase tracking-wider bg-[#F2F2F2]">
                 <th className="text-left py-3 px-4">Nome</th>
                 <th className="text-left py-3 px-4">CPF</th>
                 <th className="text-left py-3 px-4">Telefone</th>
@@ -314,21 +314,21 @@ function DevedoresPage({ data, onRefresh }) {
             </thead>
             <tbody>
               {filtered.slice(0, 50).map((f, i) => (
-                <tr key={i} className="border-t border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
-                  <td className="py-3 px-4 text-white font-medium">{f.nome || "—"}</td>
-                  <td className="py-3 px-4 text-zinc-400 font-mono text-xs">{f.cpf || "—"}</td>
-                  <td className="py-3 px-4 text-zinc-400 font-mono text-xs">{f.telefone || "—"}</td>
-                  <td className="py-3 px-4 text-zinc-400 text-xs">{f.prefeitura || "—"}</td>
-                  <td className="py-3 px-4 text-right text-white font-semibold">
+                <tr key={i} className="border-t border-zinc-200 hover:bg-[#F2F2F2]/50 transition-colors">
+                  <td className="py-3 px-4 text-[#403A2F] font-medium">{f.nome || "—"}</td>
+                  <td className="py-3 px-4 text-[#818C84] font-mono text-xs">{f.cpf || "—"}</td>
+                  <td className="py-3 px-4 text-[#818C84] font-mono text-xs">{f.telefone || "—"}</td>
+                  <td className="py-3 px-4 text-[#818C84] text-xs">{f.prefeitura || "—"}</td>
+                  <td className="py-3 px-4 text-right text-[#403A2F] font-semibold">
                     {parseFloat(f.valor_divida || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </td>
                   <td className="py-3 px-4"><Badge status={f.status} /></td>
                   <td className="py-3 px-4"><Badge status={f.fase_cobranca} /></td>
-                  <td className="py-3 px-4 text-center text-zinc-400">{f.tentativas || 0}</td>
+                  <td className="py-3 px-4 text-center text-[#818C84]">{f.tentativas || 0}</td>
                   <td className="py-3 px-4 text-center">
-                    {f.leu_mensagem ? <Eye size={14} className="text-emerald-400 mx-auto" /> : <span className="text-zinc-600">—</span>}
+                    {f.leu_mensagem ? <Eye size={14} className="text-[#8AA696] mx-auto" /> : <span className="text-[#8AA696]">—</span>}
                   </td>
-                  <td className="py-3 px-4 text-zinc-500 text-xs">{f.contrato || "—"}</td>
+                  <td className="py-3 px-4 text-[#818C84] text-xs">{f.contrato || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -419,16 +419,16 @@ function UploadPage({ onRefresh }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Importar Devedores</h1>
-        <p className="text-zinc-400 text-sm mt-1">Suba um arquivo XLSX, CSV ou TXT com a base de cobrança</p>
+        <h1 className="text-2xl font-bold text-[#403A2F]">Importar Devedores</h1>
+        <p className="text-[#818C84] text-sm mt-1">Suba um arquivo XLSX, CSV ou TXT com a base de cobrança</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2"><FileText size={16} /> Campos esperados</h3>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-[#525952] mb-3 flex items-center gap-2"><FileText size={16} /> Campos esperados</h3>
           <div className="space-y-2 text-xs">
             {["cpf *", "nome *", "telefone *", "email", "valor_divida *", "prefeitura", "contrato", "classificacao"].map(f => (
-              <div key={f} className={`flex items-center gap-2 ${f.includes("*") ? "text-white" : "text-zinc-500"}`}>
+              <div key={f} className={`flex items-center gap-2 ${f.includes("*") ? "text-[#403A2F]" : "text-[#818C84]"}`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${f.includes("*") ? "bg-emerald-400" : "bg-zinc-600"}`} />
                 <span className="font-mono">{f.replace(" *", "")}</span>
                 {f.includes("*") && <span className="text-rose-400 text-[10px]">obrigatório</span>}
@@ -443,17 +443,17 @@ function UploadPage({ onRefresh }) {
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${
-              dragOver ? "border-blue-500 bg-blue-500/5" : "border-zinc-700 hover:border-zinc-500"
+              dragOver ? "border-blue-500 bg-blue-500/5" : "border-zinc-300 hover:border-zinc-500"
             }`}
             onClick={() => document.getElementById("fileInput").click()}
           >
             <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.txt" className="hidden"
               onChange={e => e.target.files[0] && processFile(e.target.files[0])} />
-            <FileUp size={40} className="mx-auto text-zinc-500 mb-4" />
-            <div className="text-white font-medium">
+            <FileUp size={40} className="mx-auto text-[#818C84] mb-4" />
+            <div className="text-[#403A2F] font-medium">
               {file ? file.name : "Arraste o arquivo aqui ou clique para selecionar"}
             </div>
-            <div className="text-zinc-500 text-xs mt-2">XLSX, CSV ou TXT — máximo 10MB</div>
+            <div className="text-[#818C84] text-xs mt-2">XLSX, CSV ou TXT — máximo 10MB</div>
           </div>
         </div>
       </div>
@@ -461,26 +461,26 @@ function UploadPage({ onRefresh }) {
       {preview.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-300">Prévia — {preview.length} registros</h3>
+            <h3 className="text-sm font-semibold text-[#525952]">Prévia — {preview.length} registros</h3>
             <button onClick={handleUpload} disabled={uploading}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
+              className="bg-[#8AA696] hover:bg-[#818C84] disabled:opacity-50 text-[#403A2F] px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
               {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
               {uploading ? "Importando..." : `Importar ${preview.length} devedores`}
             </button>
           </div>
 
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-zinc-500 uppercase tracking-wider bg-zinc-900/80">
+                  <tr className="text-[#818C84] uppercase tracking-wider bg-[#F2F2F2]">
                     {cols.map(c => <th key={c} className="text-left py-2.5 px-3">{c}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {preview.map((row, i) => (
-                    <tr key={i} className="border-t border-zinc-800/50">
-                      {cols.map(c => <td key={c} className="py-2 px-3 text-zinc-400 max-w-[200px] truncate">{row[c]}</td>)}
+                    <tr key={i} className="border-t border-zinc-200">
+                      {cols.map(c => <td key={c} className="py-2 px-3 text-[#818C84] max-w-[200px] truncate">{row[c]}</td>)}
                     </tr>
                   ))}
                 </tbody>
@@ -491,8 +491,8 @@ function UploadPage({ onRefresh }) {
       )}
 
       {result && (
-        <div className={`rounded-2xl p-5 border ${result.ok ? "bg-emerald-500/5 border-emerald-500/20" : "bg-rose-500/5 border-rose-500/20"}`}>
-          <div className={`font-semibold ${result.ok ? "text-emerald-400" : "text-rose-400"}`}>
+        <div className={`rounded-2xl p-5 border ${result.ok ? "bg-emerald-500/5 border-[#8AA696]/30" : "bg-rose-500/5 border-rose-500/20"}`}>
+          <div className={`font-semibold ${result.ok ? "text-[#8AA696]" : "text-rose-400"}`}>
             {result.ok ? `${result.count} devedores importados com sucesso` : `Erro: ${result.error}`}
           </div>
         </div>
@@ -521,37 +521,37 @@ function SistemaPage({ data }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Sistema de Cobrança</h1>
-        <p className="text-zinc-400 text-sm mt-1">Visão completa do pipeline — Piloto Ponta Grossa</p>
+        <h1 className="text-2xl font-bold text-[#403A2F]">Sistema de Cobrança</h1>
+        <p className="text-[#818C84] text-sm mt-1">Visão completa do pipeline — Piloto Ponta Grossa</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-4">Pipeline Operacional</h3>
+          <h3 className="text-sm font-semibold text-[#525952] mb-4">Pipeline Operacional</h3>
           {steps.map((s, i) => (
             <div key={i} className="flex gap-4 items-start">
               <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-xl border border-zinc-700 flex items-center justify-center ${s.color === "emerald" ? "bg-emerald-500/10" : s.color === "amber" ? "bg-amber-500/10" : "bg-zinc-800"}`}>
-                  <s.icon size={18} className={s.color === "emerald" ? "text-emerald-400" : s.color === "amber" ? "text-amber-400" : "text-zinc-500"} />
+                <div className={`w-10 h-10 rounded-xl border border-zinc-300 flex items-center justify-center ${s.color === "emerald" ? "bg-[#8AA696]/10" : s.color === "amber" ? "bg-amber-500/10" : "bg-[#F2F2F2]"}`}>
+                  <s.icon size={18} className={s.color === "emerald" ? "text-[#8AA696]" : s.color === "amber" ? "text-amber-400" : "text-[#818C84]"} />
                 </div>
-                {i < steps.length - 1 && <div className="w-px h-8 bg-zinc-800" />}
+                {i < steps.length - 1 && <div className="w-px h-8 bg-[#F2F2F2]" />}
               </div>
               <div className="pb-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-white font-medium text-sm">{s.title}</span>
+                  <span className="text-[#403A2F] font-medium text-sm">{s.title}</span>
                   <div className={`w-1.5 h-1.5 rounded-full ${statusColors[s.status]}`} />
                 </div>
-                <div className="text-zinc-500 text-xs mt-0.5">{s.desc}</div>
+                <div className="text-[#818C84] text-xs mt-0.5">{s.desc}</div>
               </div>
             </div>
           ))}
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-zinc-300 mb-4">Configuração Atual</h3>
+          <h3 className="text-sm font-semibold text-[#525952] mb-4">Configuração Atual</h3>
 
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 space-y-4">
-            <div className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Proteções</div>
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4">
+            <div className="text-xs text-[#818C84] uppercase tracking-wider font-semibold">Proteções</div>
             {[
               { label: "Throttle Anti-Ban", value: "45-120s entre disparos", ok: true },
               { label: "Horário Comercial", value: "08:00 — 20:00 BRT", ok: true },
@@ -560,21 +560,21 @@ function SistemaPage({ data }) {
               { label: "Follow-up", value: "A cada 3 dias", ok: true },
             ].map((p, i) => (
               <div key={i} className="flex items-center justify-between">
-                <span className="text-zinc-400 text-sm">{p.label}</span>
-                <span className={`text-xs font-medium ${p.ok ? "text-emerald-400" : "text-amber-400"}`}>{p.value}</span>
+                <span className="text-[#818C84] text-sm">{p.label}</span>
+                <span className={`text-xs font-medium ${p.ok ? "text-[#8AA696]" : "text-amber-400"}`}>{p.value}</span>
               </div>
             ))}
           </div>
 
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 space-y-4">
-            <div className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Canais de Comunicação</div>
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4">
+            <div className="text-xs text-[#818C84] uppercase tracking-wider font-semibold">Canais de Comunicação</div>
             {[
-              { canal: "WhatsApp", icon: MessageSquare, status: "Ativo", color: "text-emerald-400" },
-              { canal: "E-mail", icon: Mail, status: "Em breve", color: "text-zinc-500" },
-              { canal: "SMS", icon: Phone, status: "Em breve", color: "text-zinc-500" },
+              { canal: "WhatsApp", icon: MessageSquare, status: "Ativo", color: "text-[#8AA696]" },
+              { canal: "E-mail", icon: Mail, status: "Em breve", color: "text-[#818C84]" },
+              { canal: "SMS", icon: Phone, status: "Em breve", color: "text-[#818C84]" },
             ].map((c, i) => (
               <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-zinc-300 text-sm">
+                <div className="flex items-center gap-2 text-[#525952] text-sm">
                   <c.icon size={14} /> {c.canal}
                 </div>
                 <span className={`text-xs font-medium ${c.color}`}>{c.status}</span>
@@ -582,8 +582,8 @@ function SistemaPage({ data }) {
             ))}
           </div>
 
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 space-y-4">
-            <div className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Escalada de Pressão</div>
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4">
+            <div className="text-xs text-[#818C84] uppercase tracking-wider font-semibold">Escalada de Pressão</div>
             {[
               { fase: "1ª — Inicial", tom: "Informativo, amigável", color: "bg-blue-500" },
               { fase: "2ª — Lembrete", tom: "Direto, lembrando", color: "bg-amber-500" },
@@ -593,8 +593,8 @@ function SistemaPage({ data }) {
               <div key={i} className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${f.color}`} />
                 <div>
-                  <div className="text-white text-xs font-medium">{f.fase}</div>
-                  <div className="text-zinc-500 text-[11px]">{f.tom}</div>
+                  <div className="text-[#403A2F] text-xs font-medium">{f.fase}</div>
+                  <div className="text-[#818C84] text-[11px]">{f.tom}</div>
                 </div>
               </div>
             ))}
@@ -641,20 +641,20 @@ export default function App() {
   ];
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-white overflow-hidden" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="flex h-screen bg-[#F2F2F2] text-[#403A2F] overflow-hidden" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "w-56" : "w-16"} flex-shrink-0 bg-zinc-900/50 border-r border-zinc-800 flex flex-col transition-all duration-300`}>
-        <div className="p-4 border-b border-zinc-800">
+      <aside className={`${sidebarOpen ? "w-56" : "w-16"} flex-shrink-0 bg-white border-r border-zinc-200 flex flex-col transition-all duration-300`}>
+        <div className="p-4 border-b border-zinc-200">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#8AA696]/10 border border-[#8AA696]/30 flex items-center justify-center text-[#8AA696] font-bold text-sm flex-shrink-0">
               S
             </div>
             {sidebarOpen && (
               <div className="overflow-hidden">
-                <div className="text-sm font-bold text-white">Starbank</div>
-                <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Cobrança</div>
+                <div className="text-sm font-bold text-[#403A2F]">Starbank</div>
+                <div className="text-[10px] text-[#818C84] uppercase tracking-wider">Cobrança</div>
               </div>
             )}
           </div>
@@ -664,7 +664,7 @@ export default function App() {
           {nav.map(n => (
             <button key={n.id} onClick={() => setPage(n.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                page === n.id ? "bg-white/5 text-white font-medium" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]"
+                page === n.id ? "bg-[#8AA696]/10 text-[#403A2F] font-medium" : "text-[#818C84] hover:text-[#525952] hover:bg-[#8AA696]/5"
               }`}>
               <n.icon size={18} className="flex-shrink-0" />
               {sidebarOpen && n.label}
@@ -672,9 +672,9 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="p-3 border-t border-zinc-800">
+        <div className="p-3 border-t border-zinc-200">
           <button onClick={fetchData} disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-colors">
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#F2F2F2] hover:bg-zinc-700 text-[#818C84] text-xs transition-colors">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             {sidebarOpen && (loading ? "Atualizando..." : "Atualizar")}
           </button>
@@ -685,7 +685,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-6">
           {loading && data.fila.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-zinc-500">
+            <div className="flex items-center justify-center h-64 text-[#818C84]">
               <Loader2 size={24} className="animate-spin mr-3" /> Carregando dados...
             </div>
           ) : (
