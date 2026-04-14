@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
-import { Upload, Search, RefreshCw, ArrowUpRight, ArrowDownRight, Phone, Mail, MessageSquare, Eye, CheckCheck, Send, AlertTriangle, Users, FileText, LayoutDashboard, Database, ChevronRight, X, FileUp, Clock, Shield, TrendingUp, Loader2 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Upload, Search, RefreshCw, ArrowUpRight, ArrowDownRight, Phone, Mail, MessageSquare, Eye, CheckCheck, Send, AlertTriangle, Users, FileText, LayoutDashboard, Database, ChevronLeft, ChevronRight, FileUp, Clock, Shield, TrendingUp, Loader2, UserPlus, CheckCircle, Download } from "lucide-react";
 import * as Papa from "papaparse";
 import * as XLSX from "xlsx";
 
@@ -28,7 +28,347 @@ const supaPost = async (table, body) => {
   return res.json();
 };
 
-// ─── Metric Card ─────────────────────────────────────
+// ─── LOAD EXCELJS FROM CDN ───────────────────────────
+async function loadExcelJS() {
+  return new Promise((resolve, reject) => {
+    if (window.ExcelJS) { resolve(window.ExcelJS); return; }
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    script.onload = () => resolve(window.ExcelJS);
+    script.onerror = () => reject(new Error("Falha ao carregar ExcelJS"));
+    document.head.appendChild(script);
+  });
+}
+
+// ─── EXPORT XLSX — STYLED ────────────────────────────
+async function exportToXLSX(data) {
+  const ExcelJS = await loadExcelJS();
+  const { fila, logs } = data;
+  const devedoresRaw = await supaFetch("devedores", "select=cpf,classificacao&limit=500");
+  const classMap = Object.fromEntries((Array.isArray(devedoresRaw) ? devedoresRaw : []).map(d => [d.cpf, d.classificacao]));
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Starbank";
+  wb.created = new Date();
+  const now = new Date();
+  const dataHora = now.toLocaleString("pt-BR");
+
+  // ── Platform palette (ARGB — no #, prefixed FF for full opacity) ──
+  const C = {
+    dark:    "FF403A2F",
+    green:   "FF8AA696",
+    greenDk: "FF6B887A",
+    gray:    "FF818C84",
+    midGray: "FF525952",
+    light:   "FFF2F2F2",
+    white:   "FFFFFFFF",
+    amber:   "FFF59E0B",
+    blue:    "FF3B82F6",
+    rose:    "FFEF4444",
+    cyan:    "FF06B6D4",
+    violet:  "FF8B5CF6",
+    emerald: "FF10B981",
+    orange:  "FFF97316",
+    border:  "FFE4E4E7",
+  };
+
+  // ── Reusable style helpers ──
+  const applyTitle = (row) => {
+    row.height = 32;
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      cell.font   = { name: "Arial", bold: true, size: 14, color: { argb: C.white } };
+      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: C.dark } };
+      cell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+    });
+  };
+
+  const applySubtitle = (row) => {
+    row.height = 16;
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      cell.font   = { name: "Arial", italic: true, size: 9, color: { argb: C.gray } };
+      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: C.light } };
+      cell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+    });
+  };
+
+  const applySection = (row) => {
+    row.height = 22;
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      cell.font   = { name: "Arial", bold: true, size: 9, color: { argb: C.white } };
+      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: C.green } };
+      cell.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+    });
+  };
+
+  const applyHeader = (row) => {
+    row.height = 22;
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      cell.font   = { name: "Arial", bold: true, size: 9, color: { argb: C.white } };
+      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: C.green } };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      cell.border = { bottom: { style: "medium", color: { argb: C.dark } } };
+    });
+  };
+
+  const applyDataRow = (row, isEven) => {
+    const bg = isEven ? C.light : C.white;
+    row.height = 18;
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      if (!cell.font?.bold && !cell.font?.color) {
+        cell.font = { name: "Arial", size: 9, color: { argb: C.dark } };
+      }
+      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      cell.border = { bottom: { style: "thin", color: { argb: C.border } } };
+      if (!cell.alignment) cell.alignment = { vertical: "middle" };
+    });
+  };
+
+  const applyFooterTotal = (row) => {
+    row.height = 22;
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      cell.font   = { name: "Arial", bold: true, size: 9, color: { argb: C.white } };
+      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: C.dark } };
+      cell.alignment = { vertical: "middle" };
+    });
+  };
+
+  const coloredText = (color) => ({
+    font: { name: "Arial", bold: true, size: 9, color: { argb: color } },
+  });
+
+  const STATUS_COLORS = {
+    pendente:   C.amber,
+    enviado:    C.blue,
+    respondido: C.violet,
+    lido:       C.green,
+    pago:       C.emerald,
+    negativado: C.rose,
+  };
+
+  const FASE_COLORS = {
+    inicial:         C.gray,
+    lembrete:        C.amber,
+    urgente:         C.orange,
+    pre_negativacao: C.rose,
+  };
+
+  const ENTREGA_COLORS = {
+    lido:      C.green,
+    entregue:  C.cyan,
+    enviado:   C.blue,
+    falhou:    C.rose,
+  };
+
+  // ── Calculations (same as before) ──
+  const fmtBRL   = (v) => parseFloat(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pct      = (n, d) => (d > 0 ? `${Math.round((n / d) * 100)}%` : "0%");
+  const total      = fila.length;
+  const pendentes  = fila.filter(f => f.status === "pendente").length;
+  const enviados   = fila.filter(f => f.status === "enviado").length;
+  const respondidos= fila.filter(f => f.status === "respondido").length;
+  const pagos      = fila.filter(f => f.status === "pago").length;
+  const disparos   = logs.filter(l => l.tipo === "disparo");
+  const totalDisp  = disparos.length;
+  const lidosLog   = disparos.filter(l => l.status_entrega === "lido").length;
+  const falhou     = disparos.filter(l => l.status_entrega === "falhou").length;
+  const entregues  = disparos.filter(l => l.status_entrega === "entregue" || l.status_entrega === "lido").length;
+  const valorTotal = fila.reduce((s, f) => s + parseFloat(f.valor_divida || 0), 0);
+  const valorPago  = fila.filter(f => f.status === "pago").reduce((s, f) => s + parseFloat(f.valor_divida || 0), 0);
+  const valorAberto= valorTotal - valorPago;
+
+  // ══════════════════════════════════════════════
+  // ABA 1 — RESUMO EXECUTIVO
+  // ══════════════════════════════════════════════
+  const wsR = wb.addWorksheet("Resumo Executivo");
+  wsR.columns = [{ width: 36 }, { width: 4 }, { width: 24 }];
+
+  // Title + date
+  wsR.mergeCells("A1:C1");
+  applyTitle(wsR.addRow(["STARBANK — RELATÓRIO DE COBRANÇA"]));
+  // Trick: addRow returns row 1 when sheet is empty → use getRow
+  // Re-do properly:
+  wsR.getRow(1).getCell(1).value = "STARBANK — RELATÓRIO DE COBRANÇA";
+  applyTitle(wsR.getRow(1));
+
+  wsR.mergeCells("A2:C2");
+  wsR.getRow(2).getCell(1).value = `Gerado em: ${dataHora}`;
+  applySubtitle(wsR.getRow(2));
+
+  wsR.addRow([]); // spacer row 3
+
+  // Helper: add section block
+  const addResumoSection = (title, rows) => {
+    const secRow = wsR.addRow([title, "", "VALOR"]);
+    applySection(secRow);
+    rows.forEach(([label, , value], idx) => {
+      const r = wsR.addRow([label, "", value]);
+      applyDataRow(r, idx % 2 === 0);
+      // label style override
+      r.getCell(1).font      = { name: "Arial", size: 9, color: { argb: C.midGray } };
+      r.getCell(1).fill      = r.getCell(2).fill; // inherit bg
+      // value style
+      r.getCell(3).font      = { name: "Arial", bold: true, size: 9, color: { argb: C.dark } };
+      r.getCell(3).alignment = { horizontal: "right", vertical: "middle" };
+    });
+    wsR.addRow([]); // spacer
+  };
+
+  addResumoSection("INDICADORES GERAIS", [
+    ["Total de Devedores na Fila", "", total],
+    ["Pendentes",                  "", pendentes],
+    ["Enviados",                   "", enviados],
+    ["Respondidos",                "", respondidos],
+    ["Pagos / Recuperados",        "", pagos],
+  ]);
+
+  addResumoSection("MÉTRICAS DE ALCANCE", [
+    ["Taxa de Alcance",     "", pct(total - pendentes, total)],
+    ["Taxa de Leitura",     "", pct(lidosLog, totalDisp)],
+    ["Taxa de Resposta",    "", pct(respondidos, total)],
+    ["Total de Disparos",   "", totalDisp],
+    ["Mensagens Entregues", "", entregues],
+    ["Mensagens Lidas",     "", lidosLog],
+    ["Falhou",              "", falhou],
+  ]);
+
+  addResumoSection("FINANCEIRO (R$)", [
+    ["Carteira Total",     "", `R$ ${fmtBRL(valorTotal)}`],
+    ["Valor Recuperado",   "", `R$ ${fmtBRL(valorPago)}`],
+    ["Valor em Aberto",    "", `R$ ${fmtBRL(valorAberto)}`],
+    ["Taxa de Recuperação","", pct(valorPago, valorTotal)],
+  ]);
+
+  addResumoSection("FASES DE COBRANÇA", [
+    ["Inicial",          "", fila.filter(f => f.fase_cobranca === "inicial").length],
+    ["Lembrete",         "", fila.filter(f => f.fase_cobranca === "lembrete").length],
+    ["Urgente",          "", fila.filter(f => f.fase_cobranca === "urgente").length],
+    ["Pré-negativação",  "", fila.filter(f => f.fase_cobranca === "pre_negativacao").length],
+  ]);
+
+  const prefMap = fila.reduce((acc, f) => {
+    const k = f.prefeitura || "—";
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  addResumoSection("DEVEDORES POR PREFEITURA", Object.entries(prefMap).map(([p, q]) => [p, "", q]));
+
+  // ══════════════════════════════════════════════
+  // ABA 2 — DEVEDORES
+  // ══════════════════════════════════════════════
+  const wsD = wb.addWorksheet("Devedores");
+  wsD.columns = [
+    { width: 30 }, { width: 14 }, { width: 16 }, { width: 28 }, { width: 16 },
+    { width: 20 }, { width: 13 }, { width: 16 }, { width: 11 },
+    { width: 9  }, { width: 18 }, { width: 14 },
+  ];
+
+  wsD.mergeCells("A1:L1");
+  wsD.getRow(1).getCell(1).value = `STARBANK — LISTA DE DEVEDORES — ${dataHora}`;
+  applyTitle(wsD.getRow(1));
+
+  wsD.addRow([]); // spacer
+
+  const devHeaders = ["Nome", "CPF", "Telefone", "E-mail", "Prefeitura",
+    "Valor da Dívida (R$)", "Status", "Fase", "Tentativas", "Leu?", "Contrato", "Classificação"];
+  const devHRow = wsD.addRow(devHeaders);
+  applyHeader(devHRow);
+
+  fila.forEach((f, i) => {
+    const r = wsD.addRow([
+      f.nome         || "",
+      f.cpf          || "",
+      f.telefone     || "",
+      f.email        || "",
+      f.prefeitura   || "",
+      parseFloat(f.valor_divida || 0),
+      f.status       || "",
+      f.fase_cobranca|| "",
+      f.tentativas   || 0,
+      f.leu_mensagem ? "Sim" : "Não",
+      f.contrato     || "",
+      classMap[f.cpf] || f.classificacao || "",
+    ]);
+
+    applyDataRow(r, i % 2 === 0);
+
+    // Currency format
+    r.getCell(6).numFmt    = '"R$ "#,##0.00';
+    r.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
+    r.getCell(9).alignment = { horizontal: "center", vertical: "middle" };
+    r.getCell(10).alignment= { horizontal: "center", vertical: "middle" };
+
+    // Status color
+    if (STATUS_COLORS[f.status])
+      r.getCell(7).font = { name: "Arial", bold: true, size: 9, color: { argb: STATUS_COLORS[f.status] } };
+
+    // Fase color
+    if (FASE_COLORS[f.fase_cobranca])
+      r.getCell(8).font = { name: "Arial", bold: true, size: 9, color: { argb: FASE_COLORS[f.fase_cobranca] } };
+  });
+
+  // Total footer
+  wsD.addRow([]);
+  const devTotalRow = wsD.addRow([
+    `TOTAL — ${fila.length} registros`, "", "", "", "",
+    valorTotal, "", "", "", "", "", "",
+  ]);
+  applyFooterTotal(devTotalRow);
+  devTotalRow.getCell(6).numFmt    = '"R$ "#,##0.00';
+  devTotalRow.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
+
+  wsD.views = [{ state: "frozen", ySplit: 3 }];
+
+  // ══════════════════════════════════════════════
+  // ABA 3 — LOG DE CONTATOS
+  // ══════════════════════════════════════════════
+  const wsL = wb.addWorksheet("Log de Contatos");
+  wsL.columns = [
+    { width: 14 }, { width: 16 }, { width: 12 },
+    { width: 18 }, { width: 22 }, { width: 60 },
+  ];
+
+  wsL.mergeCells("A1:F1");
+  wsL.getRow(1).getCell(1).value = `STARBANK — LOG DE CONTATOS — ${dataHora}`;
+  applyTitle(wsL.getRow(1));
+
+  wsL.addRow([]);
+
+  const logHeaders = ["Canal", "Telefone", "Tipo", "Status de Entrega", "Data/Hora", "Conteúdo da Mensagem"];
+  const logHRow = wsL.addRow(logHeaders);
+  applyHeader(logHRow);
+
+  logs.forEach((l, i) => {
+    const r = wsL.addRow([
+      l.canal           || "",
+      l.telefone        || "",
+      l.tipo            || "",
+      l.status_entrega  || "",
+      l.timestamp_envio ? new Date(l.timestamp_envio).toLocaleString("pt-BR") : "",
+      l.conteudo        || "",
+    ]);
+    applyDataRow(r, i % 2 === 0);
+
+    // Delivery status color
+    if (ENTREGA_COLORS[l.status_entrega])
+      r.getCell(4).font = { name: "Arial", bold: true, size: 9, color: { argb: ENTREGA_COLORS[l.status_entrega] } };
+  });
+
+  wsL.views = [{ state: "frozen", ySplit: 3 }];
+
+  // ── Download ──
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob   = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement("a");
+  a.href       = url;
+  a.download   = `Starbank_Cobranca_${now.toISOString().slice(0, 10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── REST OF THE COMPONENT (unchanged) ────────────────────────
+// ══════════════════════════════════════════════════════════════
+
 function MetricCard({ label, value, sub, icon: Icon, color, trend }) {
   const colors = {
     blue: "from-blue-500/10 to-blue-600/5 border-blue-500/20",
@@ -64,7 +404,6 @@ function MetricCard({ label, value, sub, icon: Icon, color, trend }) {
   );
 }
 
-// ─── Status Badge ────────────────────────────────────
 function Badge({ status }) {
   const map = {
     pendente: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -86,7 +425,6 @@ function Badge({ status }) {
   );
 }
 
-// ─── Channel Icon ────────────────────────────────────
 function ChannelIcon({ canal }) {
   if (canal === "whatsapp") return <MessageSquare size={14} className="text-[#8AA696]" />;
   if (canal === "email") return <Mail size={14} className="text-blue-400" />;
@@ -94,7 +432,6 @@ function ChannelIcon({ canal }) {
   return <Send size={14} className="text-[#818C84]" />;
 }
 
-// ─── Custom Tooltip ──────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
@@ -107,7 +444,379 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-// ─── DASHBOARD PAGE ──────────────────────────────────
+function KanbanColumn({ title, items, color, icon: Icon, borderColor }) {
+  return (
+    <div className="flex-1 min-w-[180px]">
+      <div className={`rounded-2xl border ${borderColor} bg-white overflow-hidden`}>
+        <div className={`px-4 py-3 flex items-center gap-2 border-b ${borderColor}`} style={{ background: color + "08" }}>
+          <Icon size={15} style={{ color }} />
+          <span className="text-sm font-semibold text-[#403A2F]">{title}</span>
+          <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: color + "15", color }}>
+            {items.length}
+          </span>
+        </div>
+        <div className="p-2 space-y-1.5 max-h-[300px] overflow-y-auto">
+          {items.length === 0 && <div className="text-center py-8 text-xs text-[#818C84]">Nenhum devedor</div>}
+          {items.slice(0, 10).map((f, i) => (
+            <div
+              key={i}
+              className="bg-[#F7F7F6] border border-zinc-200 rounded-2xl px-3 py-2.5 hover:bg-white hover:shadow-sm transition-all"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-[#403A2F] truncate flex-1">
+                  {f.nome || "Sem nome"}
+                </span>
+                <span className="text-[11px] font-bold text-[#525952] whitespace-nowrap">
+                  {parseFloat(f.valor_divida || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2 text-[10px] text-[#818C84]">
+                <span className="font-mono">
+                  {f.telefone?.slice(-4) ? `••${f.telefone.slice(-4)}` : "—"}
+                </span>
+                <span>•</span>
+                <span>Tent. {f.tentativas || 0}</span>
+                {f.leu_mensagem && <Eye size={10} className="text-[#8AA696] ml-auto" />}
+              </div>
+            </div>
+          ))}
+          {items.length > 10 && <div className="text-center py-2 text-[10px] text-[#818C84]">+{items.length - 10} mais</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, required, children }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium text-[#525952]">
+        {label} {required && <span className="text-rose-400">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls = "w-full bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-sm text-[#403A2F] placeholder:text-zinc-400 focus:outline-none focus:border-zinc-500 transition-colors";
+
+function CadastroManual({ onRefresh }) {
+  const empty = {
+    cpf: "", nome: "", telefone: "", email: "",
+    valor_divida: "", contrato: "", prefeitura: "Ponta Grossa", classificacao: "",
+  };
+  const [form, setForm] = useState(empty);
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  const set = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }));
+    setErrors(e => ({ ...e, [k]: undefined }));
+    setResult(null);
+  };
+
+  const fmtCPF = (v) => v.replace(/\D/g, "").slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  const fmtPhone = (v) => {
+    const d = v.replace(/\D/g, "").slice(0, 13);
+    if (d.length <= 2) return d;
+    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
+  };
+
+  const validate = () => {
+    const e = {};
+    if (!form.cpf.replace(/\D/g, "")) e.cpf = "CPF obrigatório";
+    if (!form.nome.trim()) e.nome = "Nome obrigatório";
+    if (!form.telefone.replace(/\D/g, "")) e.telefone = "Telefone obrigatório";
+    if (!form.valor_divida || isNaN(parseFloat(form.valor_divida.replace(",", ".")))) e.valor_divida = "Valor inválido";
+    return e;
+  };
+
+  const handleSave = async () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    setSaving(true);
+    setResult(null);
+    try {
+      const cpfClean = form.cpf.replace(/\D/g, "");
+      const telefoneClean = form.telefone.replace(/\D/g, "");
+      const valor = parseFloat(form.valor_divida.replace(",", "."));
+      await supaPost("devedores", [{
+        cpf: cpfClean, nome: form.nome.trim(), telefone: telefoneClean,
+        email: form.email.trim(), valor_divida: valor, valor_original: valor,
+        contrato: form.contrato.trim(), prefeitura: form.prefeitura,
+        classificacao: form.classificacao.trim(), status: "ativo",
+      }]);
+      await supaPost("fila_cobranca", [{
+        cpf: cpfClean, nome: form.nome.trim(), telefone: telefoneClean,
+        email: form.email.trim(), valor_divida: valor,
+        contrato: form.contrato.trim(), prefeitura: form.prefeitura,
+        status: "pendente", tentativas: 0, fase_cobranca: "inicial",
+      }]);
+      setResult({ ok: true, nome: form.nome.trim() });
+      setForm(empty);
+      onRefresh();
+    } catch (err) {
+      setResult({ ok: false, error: err.message });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {result?.ok && (
+        <div className="flex items-center gap-3 bg-emerald-500/5 border border-[#8AA696]/30 rounded-2xl px-5 py-4">
+          <CheckCircle size={18} className="text-[#8AA696] flex-shrink-0" />
+          <span className="text-sm text-[#525952]">
+            <span className="font-semibold text-[#403A2F]">{result.nome}</span> adicionado à fila de cobrança com sucesso!
+          </span>
+        </div>
+      )}
+      {result?.ok === false && (
+        <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl px-5 py-4 text-sm text-rose-400">
+          Erro: {result.error}
+        </div>
+      )}
+      <div className="bg-white border border-zinc-200 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-8 h-8 rounded-lg bg-[#8AA696]/10 flex items-center justify-center">
+            <UserPlus size={16} className="text-[#8AA696]" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-[#403A2F]">Dados do Devedor</div>
+            <div className="text-xs text-[#818C84]">Campos com * são obrigatórios</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Field label="CPF" required>
+            <input className={`${inputCls} ${errors.cpf ? "border-rose-400" : ""}`} placeholder="000.000.000-00"
+              value={form.cpf} onChange={e => set("cpf", fmtCPF(e.target.value))} />
+            {errors.cpf && <span className="text-xs text-rose-400">{errors.cpf}</span>}
+          </Field>
+          <Field label="Nome completo" required>
+            <input className={`${inputCls} ${errors.nome ? "border-rose-400" : ""}`} placeholder="Ex: João da Silva"
+              value={form.nome} onChange={e => set("nome", e.target.value)} />
+            {errors.nome && <span className="text-xs text-rose-400">{errors.nome}</span>}
+          </Field>
+          <Field label="Telefone (WhatsApp)" required>
+            <input className={`${inputCls} ${errors.telefone ? "border-rose-400" : ""}`} placeholder="(42) 99999-9999"
+              value={form.telefone} onChange={e => set("telefone", fmtPhone(e.target.value))} />
+            {errors.telefone && <span className="text-xs text-rose-400">{errors.telefone}</span>}
+          </Field>
+          <Field label="E-mail">
+            <input className={inputCls} placeholder="joao@email.com" type="email"
+              value={form.email} onChange={e => set("email", e.target.value)} />
+          </Field>
+          <Field label="Valor da dívida (R$)" required>
+            <input className={`${inputCls} ${errors.valor_divida ? "border-rose-400" : ""}`} placeholder="1.250,00"
+              value={form.valor_divida} onChange={e => set("valor_divida", e.target.value)} />
+            {errors.valor_divida && <span className="text-xs text-rose-400">{errors.valor_divida}</span>}
+          </Field>
+          <Field label="Contrato">
+            <input className={inputCls} placeholder="Ex: CTR-2024-00123"
+              value={form.contrato} onChange={e => set("contrato", e.target.value)} />
+          </Field>
+          <Field label="Prefeitura">
+            <select className={inputCls} value={form.prefeitura} onChange={e => set("prefeitura", e.target.value)}>
+              <option value="Ponta Grossa">Ponta Grossa</option>
+              <option value="Curitiba">Curitiba</option>
+              <option value="Londrina">Londrina</option>
+              <option value="Maringá">Maringá</option>
+              <option value="Cascavel">Cascavel</option>
+            </select>
+          </Field>
+          <Field label="Classificação">
+            <select className={inputCls} value={form.classificacao} onChange={e => set("classificacao", e.target.value)}>
+              <option value="">Sem classificação</option>
+              <option value="A">A — Alta prioridade</option>
+              <option value="B">B — Média prioridade</option>
+              <option value="C">C — Baixa prioridade</option>
+            </select>
+          </Field>
+        </div>
+        <div className="flex items-center justify-between mt-8 pt-5 border-t border-zinc-200">
+          <button onClick={() => { setForm(empty); setErrors({}); setResult(null); }}
+            className="text-sm text-[#818C84] hover:text-[#525952] transition-colors">
+            Limpar campos
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="bg-[#8AA696] hover:bg-[#818C84] disabled:opacity-50 text-[#403A2F] px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+            {saving ? "Salvando..." : "Adicionar à fila"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UploadPage({ onRefresh }) {
+  const [tab, setTab] = useState("manual");
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const processFile = (f) => {
+    setFile(f);
+    setResult(null);
+    const ext = f.name.split(".").pop().toLowerCase();
+    if (ext === "csv" || ext === "txt") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const parsed = Papa.parse(e.target.result, { header: true, skipEmptyLines: true });
+        setPreview(parsed.data.slice(0, 10));
+      };
+      reader.readAsText(f);
+    } else if (ext === "xlsx" || ext === "xls") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws);
+        setPreview(data.slice(0, 10));
+      };
+      reader.readAsArrayBuffer(f);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+  };
+
+  const handleUpload = async () => {
+    if (!preview.length) return;
+    setUploading(true);
+    setResult(null);
+    try {
+      const devedores = preview.map(row => ({
+        cpf: row.cpf || row.CPF || "",
+        nome: row.nome || row.Nome || row.NOME || "",
+        telefone: row.telefone || row.Telefone || row.TELEFONE || row.celular || row.Celular || "",
+        email: row.email || row.Email || row.EMAIL || "",
+        valor_divida: parseFloat(row.valor_divida || row.valor || row.Valor || row.VALOR || 0),
+        prefeitura: row.prefeitura || row.Prefeitura || "Ponta Grossa",
+        contrato: row.contrato || row.Contrato || row.CONTRATO || "",
+        classificacao: row.classificacao || row.Classificacao || "",
+      }));
+      await supaPost("devedores", devedores.map(d => ({ ...d, valor_original: d.valor_divida, status: "ativo" })));
+      await supaPost("fila_cobranca", devedores.map(d => ({
+        cpf: d.cpf, telefone: d.telefone, email: d.email, nome: d.nome,
+        prefeitura: d.prefeitura, valor_divida: d.valor_divida, contrato: d.contrato,
+        status: "pendente", tentativas: 0, fase_cobranca: "inicial",
+      })));
+      setResult({ ok: true, count: devedores.length });
+      onRefresh();
+    } catch (err) {
+      setResult({ ok: false, error: err.message });
+    }
+    setUploading(false);
+  };
+
+  const cols = preview.length > 0 ? Object.keys(preview[0]) : [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-[#403A2F]">Adicionar Devedores</h1>
+        <p className="text-[#818C84] text-sm mt-1">Cadastre manualmente ou importe via arquivo</p>
+      </div>
+      <div className="flex gap-1 bg-white border border-zinc-200 rounded-xl p-1 w-fit">
+        {[
+          { id: "manual", label: "Cadastro Manual", icon: UserPlus },
+          { id: "arquivo", label: "Importar Arquivo", icon: FileUp },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === t.id ? "bg-[#8AA696]/15 text-[#403A2F]" : "text-[#818C84] hover:text-[#525952]"
+            }`}>
+            <t.icon size={15} />{t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "manual" && <CadastroManual onRefresh={onRefresh} />}
+      {tab === "arquivo" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-[#525952] mb-3 flex items-center gap-2"><FileText size={16} /> Campos esperados</h3>
+              <div className="space-y-2 text-xs">
+                {["cpf *", "nome *", "telefone *", "email", "valor_divida *", "prefeitura", "contrato", "classificacao"].map(f => (
+                  <div key={f} className={`flex items-center gap-2 ${f.includes("*") ? "text-[#403A2F]" : "text-[#818C84]"}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${f.includes("*") ? "bg-emerald-400" : "bg-zinc-600"}`} />
+                    <span className="font-mono">{f.replace(" *", "")}</span>
+                    {f.includes("*") && <span className="text-rose-400 text-[10px]">obrigatório</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${dragOver ? "border-blue-500 bg-blue-500/5" : "border-zinc-300 hover:border-zinc-500"}`}
+                onClick={() => document.getElementById("fileInput").click()}>
+                <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.txt" className="hidden"
+                  onChange={e => e.target.files[0] && processFile(e.target.files[0])} />
+                <FileUp size={40} className="mx-auto text-[#818C84] mb-4" />
+                <div className="text-[#403A2F] font-medium">
+                  {file ? file.name : "Arraste o arquivo aqui ou clique para selecionar"}
+                </div>
+                <div className="text-[#818C84] text-xs mt-2">XLSX, CSV ou TXT — máximo 10MB</div>
+              </div>
+            </div>
+          </div>
+          {preview.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[#525952]">Prévia — {preview.length} registros</h3>
+                <button onClick={handleUpload} disabled={uploading}
+                  className="bg-[#8AA696] hover:bg-[#818C84] disabled:opacity-50 text-[#403A2F] px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
+                  {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                  {uploading ? "Importando..." : `Importar ${preview.length} devedores`}
+                </button>
+              </div>
+              <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-[#818C84] uppercase tracking-wider bg-[#F2F2F2]">
+                        {cols.map(c => <th key={c} className="text-left py-2.5 px-3">{c}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.map((row, i) => (
+                        <tr key={i} className="border-t border-zinc-200">
+                          {cols.map(c => <td key={c} className="py-2 px-3 text-[#818C84] max-w-[200px] truncate">{row[c]}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          {result && (
+            <div className={`rounded-2xl p-5 border ${result.ok ? "bg-emerald-500/5 border-[#8AA696]/30" : "bg-rose-500/5 border-rose-500/20"}`}>
+              <div className={`font-semibold ${result.ok ? "text-[#8AA696]" : "text-rose-400"}`}>
+                {result.ok ? `${result.count} devedores importados com sucesso` : `Erro: ${result.error}`}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardPage({ data }) {
   const { fila, logs } = data;
   const total = fila.length;
@@ -115,7 +824,6 @@ function DashboardPage({ data }) {
   const enviados = fila.filter(f => f.status === "enviado").length;
   const respondidos = fila.filter(f => f.status === "respondido").length;
   const pagos = fila.filter(f => f.status === "pago").length;
-  const lidos = fila.filter(f => f.leu_mensagem).length;
 
   const disparos = logs.filter(l => l.tipo === "disparo");
   const totalDisparos = disparos.length;
@@ -126,7 +834,6 @@ function DashboardPage({ data }) {
   const taxaAlcance = total > 0 ? Math.round(((total - pendentes) / total) * 100) : 0;
   const taxaLeitura = totalDisparos > 0 ? Math.round((lidosLog / totalDisparos) * 100) : 0;
   const taxaResposta = total > 0 ? Math.round((respondidos / total) * 100) : 0;
-  const taxaRecuperacao = total > 0 ? Math.round((pagos / total) * 100) : 0;
 
   const statusData = [
     { name: "Pendente", value: pendentes, color: "#f59e0b" },
@@ -136,21 +843,22 @@ function DashboardPage({ data }) {
   ].filter(d => d.value > 0);
 
   const entregaData = [
-    { name: "Enviado", value: totalDisparos - entregues - lidosLog - falhou, color: "#3b82f6" },
+    { name: "Enviado", value: Math.max(0, totalDisparos - entregues - lidosLog - falhou), color: "#3b82f6" },
     { name: "Entregue", value: entregues, color: "#06b6d4" },
     { name: "Lido", value: lidosLog, color: "#8AA696" },
     { name: "Falhou", value: falhou, color: "#ef4444" },
   ].filter(d => d.value > 0);
 
-  const faseData = [
-    { fase: "Inicial", qtd: fila.filter(f => f.fase_cobranca === "inicial").length },
-    { fase: "Lembrete", qtd: fila.filter(f => f.fase_cobranca === "lembrete").length },
-    { fase: "Urgente", qtd: fila.filter(f => f.fase_cobranca === "urgente").length },
-    { fase: "Pré-negat.", qtd: fila.filter(f => f.fase_cobranca === "pre_negativacao").length },
-  ];
-
   const valorTotal = fila.reduce((s, f) => s + parseFloat(f.valor_divida || 0), 0);
   const valorPago = fila.filter(f => f.status === "pago").reduce((s, f) => s + parseFloat(f.valor_divida || 0), 0);
+
+  const kanbanCols = [
+    { title: "Inicial", items: fila.filter(f => f.fase_cobranca === "inicial" && f.status !== "pago"), color: "#3b82f6", icon: Send, borderColor: "border-blue-200" },
+    { title: "Lembrete", items: fila.filter(f => f.fase_cobranca === "lembrete" && f.status !== "pago"), color: "#f59e0b", icon: Clock, borderColor: "border-amber-200" },
+    { title: "Urgente", items: fila.filter(f => f.fase_cobranca === "urgente" && f.status !== "pago"), color: "#f97316", icon: AlertTriangle, borderColor: "border-orange-200" },
+    { title: "Pré-negat.", items: fila.filter(f => f.fase_cobranca === "pre_negativacao" && f.status !== "pago"), color: "#ef4444", icon: Shield, borderColor: "border-rose-200" },
+    { title: "Pago", items: fila.filter(f => f.status === "pago"), color: "#8AA696", icon: CheckCheck, borderColor: "border-[#8AA696]/30" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -168,57 +876,58 @@ function DashboardPage({ data }) {
         <MetricCard label="Valor em Aberto" value={`R$ ${(valorTotal - valorPago).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} icon={AlertTriangle} color="red" sub="Carteira inadimplente" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div>
+        <h3 className="text-sm font-semibold text-[#525952] mb-3">Pipeline de Cobrança</h3>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {kanbanCols.map((col, i) => <KanbanColumn key={i} {...col} />)}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white border border-zinc-200 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-[#525952] mb-4">Status da Fila</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                {statusData.map((d, i) => <Cell key={i} fill={d.color} />)}
-              </Pie>
-              <Tooltip content={<ChartTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-3 mt-3 justify-center">
-            {statusData.map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs text-[#818C84]">
-                <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
-                {d.name}: {d.value}
-              </div>
-            ))}
+          <div className="flex items-center">
+            <ResponsiveContainer width="50%" height={180}>
+              <PieChart>
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {statusData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 space-y-2.5 pl-4">
+              {statusData.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                  <span className="text-xs text-[#818C84] flex-1">{d.name}</span>
+                  <span className="text-xs font-bold text-[#403A2F]">{d.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="bg-white border border-zinc-200 rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-[#525952] mb-4">Status de Entrega</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={entregaData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                {entregaData.map((d, i) => <Cell key={i} fill={d.color} />)}
-              </Pie>
-              <Tooltip content={<ChartTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-3 mt-3 justify-center">
-            {entregaData.map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs text-[#818C84]">
-                <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
-                {d.name}: {d.value}
-              </div>
-            ))}
+          <div className="flex items-center">
+            <ResponsiveContainer width="50%" height={180}>
+              <PieChart>
+                <Pie data={entregaData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {entregaData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 space-y-2.5 pl-4">
+              {entregaData.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                  <span className="text-xs text-[#818C84] flex-1">{d.name}</span>
+                  <span className="text-xs font-bold text-[#403A2F]">{d.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-[#525952] mb-4">Fases de Cobrança</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={faseData} barSize={32}>
-              <XAxis dataKey="fase" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="qtd" name="Devedores" fill="#525952" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
@@ -238,7 +947,7 @@ function DashboardPage({ data }) {
             </thead>
             <tbody>
               {logs.slice(0, 8).map((l, i) => (
-                <tr key={i} className="border-b border-zinc-200 hover:bg-[#F2F2F2]/50 transition-colors">
+                <tr key={i} className="border-b border-zinc-100 hover:bg-[#F2F2F2]/50 transition-colors">
                   <td className="py-2.5 px-3"><ChannelIcon canal={l.canal} /></td>
                   <td className="py-2.5 px-3 text-[#525952] font-mono text-xs">{l.telefone || "—"}</td>
                   <td className="py-2.5 px-3"><Badge status={l.tipo} /></td>
@@ -255,35 +964,53 @@ function DashboardPage({ data }) {
   );
 }
 
-// ─── DEVEDORES PAGE ──────────────────────────────────
-function DevedoresPage({ data, onRefresh }) {
+function DevedoresPage({ data }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
-  const { fila } = data;
-
+  const [exporting, setExporting] = useState(false);
+  const { fila, logs } = data;
+  const telefonesLeram = new Set(logs.filter(l => l.status_entrega === "lido").map(l => l.telefone));
   const filtered = fila.filter(f => {
     const matchSearch = !search || f.nome?.toLowerCase().includes(search.toLowerCase()) || f.cpf?.includes(search) || f.telefone?.includes(search);
     const matchStatus = filterStatus === "todos" || f.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportToXLSX(data);
+    } catch (err) {
+      console.error("Export error:", err);
+      alert("Erro ao gerar XLSX: " + err.message);
+    }
+    setExporting(false);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#403A2F]">Devedores</h1>
           <p className="text-[#818C84] text-sm mt-1">{filtered.length} registros</p>
         </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting || fila.length === 0}
+          className="flex items-center gap-2 bg-white border border-zinc-200 hover:border-[#8AA696] hover:bg-[#8AA696]/5 disabled:opacity-40 disabled:cursor-not-allowed text-[#525952] hover:text-[#403A2F] px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm"
+        >
+          {exporting
+            ? <Loader2 size={15} className="animate-spin text-[#8AA696]" />
+            : <Download size={15} className="text-[#8AA696]" />}
+          {exporting ? "Gerando..." : "Exportar XLSX"}
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[240px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#818C84]" />
-          <input
-            type="text" placeholder="Buscar por nome, CPF ou telefone..."
-            value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#403A2F] placeholder:text-[#8AA696] focus:outline-none focus:border-zinc-600 transition-colors"
-          />
+          <input type="text" placeholder="Buscar por nome, CPF ou telefone..." value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#403A2F] placeholder:text-[#8AA696] focus:outline-none focus:border-zinc-600 transition-colors" />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-sm text-[#403A2F] focus:outline-none focus:border-zinc-600">
@@ -291,6 +1018,7 @@ function DevedoresPage({ data, onRefresh }) {
           <option value="pendente">Pendente</option>
           <option value="enviado">Enviado</option>
           <option value="respondido">Respondido</option>
+          <option value="lido">Lido</option>
           <option value="pago">Pago</option>
         </select>
       </div>
@@ -326,7 +1054,7 @@ function DevedoresPage({ data, onRefresh }) {
                   <td className="py-3 px-4"><Badge status={f.fase_cobranca} /></td>
                   <td className="py-3 px-4 text-center text-[#818C84]">{f.tentativas || 0}</td>
                   <td className="py-3 px-4 text-center">
-                    {f.leu_mensagem ? <Eye size={14} className="text-[#8AA696] mx-auto" /> : <span className="text-[#8AA696]">—</span>}
+                    {(f.leu_mensagem || telefonesLeram.has(f.telefone)) ? <Eye size={14} className="text-[#8AA696] mx-auto" /> : <span className="text-[#818C84]">—</span>}
                   </td>
                   <td className="py-3 px-4 text-[#818C84] text-xs">{f.contrato || "—"}</td>
                 </tr>
@@ -339,183 +1067,18 @@ function DevedoresPage({ data, onRefresh }) {
   );
 }
 
-// ─── UPLOAD PAGE ─────────────────────────────────────
-function UploadPage({ onRefresh }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-
-  const processFile = (f) => {
-    setFile(f);
-    setResult(null);
-    const ext = f.name.split(".").pop().toLowerCase();
-
-    if (ext === "csv" || ext === "txt") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const parsed = Papa.parse(e.target.result, { header: true, skipEmptyLines: true });
-        setPreview(parsed.data.slice(0, 10));
-      };
-      reader.readAsText(f);
-    } else if (ext === "xlsx" || ext === "xls") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws);
-        setPreview(data.slice(0, 10));
-      };
-      reader.readAsArrayBuffer(f);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
-  };
-
-  const handleUpload = async () => {
-    if (!preview.length) return;
-    setUploading(true);
-    setResult(null);
-
-    try {
-      const devedores = preview.map(row => ({
-        cpf: row.cpf || row.CPF || "",
-        nome: row.nome || row.Nome || row.NOME || "",
-        telefone: row.telefone || row.Telefone || row.TELEFONE || row.celular || row.Celular || "",
-        email: row.email || row.Email || row.EMAIL || "",
-        valor_divida: parseFloat(row.valor_divida || row.valor || row.Valor || row.VALOR || 0),
-        prefeitura: row.prefeitura || row.Prefeitura || "Ponta Grossa",
-        contrato: row.contrato || row.Contrato || row.CONTRATO || "",
-        classificacao: row.classificacao || row.Classificacao || "",
-      }));
-
-      const devedoresPayload = devedores.map(d => ({
-        ...d, valor_original: d.valor_divida, status: "ativo"
-      }));
-      await supaPost("devedores", devedoresPayload);
-
-      const filaPayload = devedores.map(d => ({
-        cpf: d.cpf, telefone: d.telefone, email: d.email, nome: d.nome,
-        prefeitura: d.prefeitura, valor_divida: d.valor_divida, contrato: d.contrato,
-        status: "pendente", tentativas: 0, fase_cobranca: "inicial",
-      }));
-      await supaPost("fila_cobranca", filaPayload);
-
-      setResult({ ok: true, count: devedores.length });
-      onRefresh();
-    } catch (err) {
-      setResult({ ok: false, error: err.message });
-    }
-    setUploading(false);
-  };
-
-  const cols = preview.length > 0 ? Object.keys(preview[0]) : [];
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#403A2F]">Importar Devedores</h1>
-        <p className="text-[#818C84] text-sm mt-1">Suba um arquivo XLSX, CSV ou TXT com a base de cobrança</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-[#525952] mb-3 flex items-center gap-2"><FileText size={16} /> Campos esperados</h3>
-          <div className="space-y-2 text-xs">
-            {["cpf *", "nome *", "telefone *", "email", "valor_divida *", "prefeitura", "contrato", "classificacao"].map(f => (
-              <div key={f} className={`flex items-center gap-2 ${f.includes("*") ? "text-[#403A2F]" : "text-[#818C84]"}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${f.includes("*") ? "bg-emerald-400" : "bg-zinc-600"}`} />
-                <span className="font-mono">{f.replace(" *", "")}</span>
-                {f.includes("*") && <span className="text-rose-400 text-[10px]">obrigatório</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="lg:col-span-2">
-          <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer ${
-              dragOver ? "border-blue-500 bg-blue-500/5" : "border-zinc-300 hover:border-zinc-500"
-            }`}
-            onClick={() => document.getElementById("fileInput").click()}
-          >
-            <input id="fileInput" type="file" accept=".xlsx,.xls,.csv,.txt" className="hidden"
-              onChange={e => e.target.files[0] && processFile(e.target.files[0])} />
-            <FileUp size={40} className="mx-auto text-[#818C84] mb-4" />
-            <div className="text-[#403A2F] font-medium">
-              {file ? file.name : "Arraste o arquivo aqui ou clique para selecionar"}
-            </div>
-            <div className="text-[#818C84] text-xs mt-2">XLSX, CSV ou TXT — máximo 10MB</div>
-          </div>
-        </div>
-      </div>
-
-      {preview.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[#525952]">Prévia — {preview.length} registros</h3>
-            <button onClick={handleUpload} disabled={uploading}
-              className="bg-[#8AA696] hover:bg-[#818C84] disabled:opacity-50 text-[#403A2F] px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors">
-              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              {uploading ? "Importando..." : `Importar ${preview.length} devedores`}
-            </button>
-          </div>
-
-          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[#818C84] uppercase tracking-wider bg-[#F2F2F2]">
-                    {cols.map(c => <th key={c} className="text-left py-2.5 px-3">{c}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.map((row, i) => (
-                    <tr key={i} className="border-t border-zinc-200">
-                      {cols.map(c => <td key={c} className="py-2 px-3 text-[#818C84] max-w-[200px] truncate">{row[c]}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {result && (
-        <div className={`rounded-2xl p-5 border ${result.ok ? "bg-emerald-500/5 border-[#8AA696]/30" : "bg-rose-500/5 border-rose-500/20"}`}>
-          <div className={`font-semibold ${result.ok ? "text-[#8AA696]" : "text-rose-400"}`}>
-            {result.ok ? `${result.count} devedores importados com sucesso` : `Erro: ${result.error}`}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── SISTEMA PAGE ────────────────────────────────────
 function SistemaPage({ data }) {
-  const { fila, logs, repasse } = data;
+  const { repasse } = data;
   const repasseAtual = repasse?.[0];
-
   const steps = [
-    { icon: Database, title: "Extração de Base", desc: "Banksoft + Hatch → importação via CSV/XLSX", status: "ativo", color: "emerald" },
+    { icon: Database, title: "Extração de Base", desc: "Banksoft + Hatch → importação via CSV/XLSX ou cadastro manual", status: "ativo", color: "emerald" },
     { icon: TrendingUp, title: "Simulação Financeira", desc: "Cálculo de dívida, parcelas e condições", status: "futuro", color: "zinc" },
-    { icon: Send, title: "Disparo Multicanal", desc: `WhatsApp ativo · E-mail futuro · SMS futuro`, status: "ativo", color: "emerald" },
+    { icon: Send, title: "Disparo Multicanal", desc: "WhatsApp ativo · E-mail futuro · SMS futuro", status: "ativo", color: "emerald" },
     { icon: Clock, title: "Conciliação de Repasse", desc: repasseAtual ? `${repasseAtual.prefeitura} · ${repasseAtual.data_repasse} · Janela ${repasseAtual.janela_dias} dias` : "Sem repasse cadastrado", status: repasseAtual ? "ativo" : "pendente", color: repasseAtual ? "emerald" : "amber" },
     { icon: RefreshCw, title: "Follow-up & Baixa", desc: "Reativação a cada 3 dias · Baixa via operador WhatsApp", status: "ativo", color: "emerald" },
     { icon: AlertTriangle, title: "Negativação", desc: "Após trilha documentada · Cobrança continua", status: "futuro", color: "zinc" },
     { icon: Shield, title: "Jurídico", desc: "Trilha de contatos como prova extrajudicial", status: "ativo", color: "emerald" },
   ];
-
   const statusColors = { ativo: "bg-emerald-500", pendente: "bg-amber-500", futuro: "bg-zinc-600" };
 
   return (
@@ -524,7 +1087,6 @@ function SistemaPage({ data }) {
         <h1 className="text-2xl font-bold text-[#403A2F]">Sistema de Cobrança</h1>
         <p className="text-[#818C84] text-sm mt-1">Visão completa do pipeline — Piloto Ponta Grossa</p>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-[#525952] mb-4">Pipeline Operacional</h3>
@@ -546,10 +1108,8 @@ function SistemaPage({ data }) {
             </div>
           ))}
         </div>
-
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-[#525952] mb-4">Configuração Atual</h3>
-
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4">
             <div className="text-xs text-[#818C84] uppercase tracking-wider font-semibold">Proteções</div>
             {[
@@ -565,23 +1125,6 @@ function SistemaPage({ data }) {
               </div>
             ))}
           </div>
-
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4">
-            <div className="text-xs text-[#818C84] uppercase tracking-wider font-semibold">Canais de Comunicação</div>
-            {[
-              { canal: "WhatsApp", icon: MessageSquare, status: "Ativo", color: "text-[#8AA696]" },
-              { canal: "E-mail", icon: Mail, status: "Em breve", color: "text-[#818C84]" },
-              { canal: "SMS", icon: Phone, status: "Em breve", color: "text-[#818C84]" },
-            ].map((c, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#525952] text-sm">
-                  <c.icon size={14} /> {c.canal}
-                </div>
-                <span className={`text-xs font-medium ${c.color}`}>{c.status}</span>
-              </div>
-            ))}
-          </div>
-
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4">
             <div className="text-xs text-[#818C84] uppercase tracking-wider font-semibold">Escalada de Pressão</div>
             {[
@@ -605,7 +1148,6 @@ function SistemaPage({ data }) {
   );
 }
 
-// ─── MAIN APP ────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
@@ -625,9 +1167,7 @@ export default function App() {
         logs: Array.isArray(logs) ? logs : [],
         repasse: Array.isArray(repasse) ? repasse : [],
       });
-    } catch (e) {
-      console.error("Fetch error:", e);
-    }
+    } catch (e) { console.error("Fetch error:", e); }
     setLoading(false);
   }, []);
 
@@ -636,7 +1176,7 @@ export default function App() {
   const nav = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "devedores", label: "Devedores", icon: Users },
-    { id: "upload", label: "Importar", icon: Upload },
+    { id: "upload", label: "Adicionar", icon: Upload },
     { id: "sistema", label: "Sistema", icon: Database },
   ];
 
@@ -644,8 +1184,14 @@ export default function App() {
     <div className="flex h-screen bg-[#F2F2F2] text-[#403A2F] overflow-hidden" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "w-56" : "w-16"} flex-shrink-0 bg-white border-r border-zinc-200 flex flex-col transition-all duration-300`}>
+      <aside className={`${sidebarOpen ? "w-56" : "w-16"} flex-shrink-0 bg-white border-r border-zinc-200 flex flex-col transition-all duration-300 relative`}>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="absolute -right-3 top-6 w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-[#818C84] hover:text-[#403A2F] hover:border-[#8AA696] shadow-sm z-10 transition-colors"
+        >
+          {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </button>
+
         <div className="p-4 border-b border-zinc-200">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#8AA696]/10 border border-[#8AA696]/30 flex items-center justify-center text-[#8AA696] font-bold text-sm flex-shrink-0">
@@ -662,10 +1208,15 @@ export default function App() {
 
         <nav className="flex-1 p-2 space-y-1">
           {nav.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)}
+            <button
+              key={n.id}
+              onClick={() => setPage(n.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                page === n.id ? "bg-[#8AA696]/10 text-[#403A2F] font-medium" : "text-[#818C84] hover:text-[#525952] hover:bg-[#8AA696]/5"
-              }`}>
+                page === n.id
+                  ? "bg-[#8AA696]/10 text-[#403A2F] font-medium"
+                  : "text-[#818C84] hover:text-[#525952] hover:bg-[#F2F2F2]"
+              }`}
+            >
               <n.icon size={18} className="flex-shrink-0" />
               {sidebarOpen && n.label}
             </button>
@@ -673,15 +1224,17 @@ export default function App() {
         </nav>
 
         <div className="p-3 border-t border-zinc-200">
-          <button onClick={fetchData} disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#F2F2F2] hover:bg-zinc-700 text-[#818C84] text-xs transition-colors">
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#F2F2F2] hover:bg-zinc-200 text-[#818C84] text-xs transition-colors"
+          >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             {sidebarOpen && (loading ? "Atualizando..." : "Atualizar")}
           </button>
         </div>
       </aside>
 
-      {/* Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-6">
           {loading && data.fila.length === 0 ? (
